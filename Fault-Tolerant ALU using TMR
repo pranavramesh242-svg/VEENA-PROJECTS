@@ -1,0 +1,90 @@
+module tmr_alu_top(
+    input  [3:0] A, B,
+    input  [2:0] op,
+    input        fault_en,
+    output [4:0] Y_final,
+    output [4:0] Y1, Y2, Y3
+);
+
+    wire [4:0] alu2_faulty;
+
+    alu alu_1(A, B, op, Y1);
+    alu alu_2(A, B, op, alu2_faulty);
+    alu alu_3(A, B, op, Y3);
+
+    fault_injector FI(alu2_faulty, fault_en, Y2);
+    voter V(Y1, Y2, Y3, Y_final);
+
+endmodule
+
+module alu(
+    input  [3:0] A, B,
+    input  [2:0] op,
+    output reg [4:0] Y
+);
+
+    always @(*) begin
+        case(op)
+            3'b000: Y = A + B;   // ADD
+            3'b001: Y = A - B;   // SUB
+            3'b010: Y = A & B;   // AND
+            3'b011: Y = A | B;   // OR
+            3'b100: Y = A ^ B;   // XOR
+            default: Y = 0;
+        endcase
+    end
+endmodule
+
+module fault_injector(
+    input  [4:0] in,
+    input        fault_en,
+    output [4:0] out
+);
+    assign out = (fault_en) ? ~in : in;  // bit flip fault
+endmodule
+
+module voter(
+    input  [4:0] y1, y2, y3,
+    output [4:0] y_out
+);
+    assign y_out = (y1 & y2) | (y2 & y3) | (y1 & y3);
+endmodule
+module tb_tmr_alu;
+
+    reg [3:0] A, B;
+    reg [2:0] op;
+    reg fault_en;
+
+    wire [4:0] Y_final, Y1, Y2, Y3;
+
+    tmr_alu_top dut(A, B, op, fault_en, Y_final, Y1, Y2, Y3);
+
+    initial begin
+    $dumpfile("tmr_alu.vcd");
+    $dumpvars(0, tb_tmr_alu);
+
+    A = 6; B = 2;
+
+    // ADD operation
+    op = 3'b000; fault_en = 0; #20;
+    fault_en = 1; #20;
+
+    // SUB operation
+    op = 3'b001; fault_en = 0; #20;
+    fault_en = 1; #20;
+
+    // AND operation
+    op = 3'b010; fault_en = 0; #20;
+    fault_en = 1; #20;
+    
+    op = 3'b011; fault_en = 0; #20;
+    fault_en = 1; #20;
+
+
+    op = 3'b100; fault_en = 0; #20;
+    fault_en = 1; #20;
+
+
+    $finish;
+end
+endmodule
